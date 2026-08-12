@@ -1,5 +1,8 @@
 FROM node:22-alpine
 
+# Upgrade all OS packages to patch any recent, unfixed vulnerabilities that the base image ships with
+RUN apk upgrade --no-cache
+
 WORKDIR /app
 COPY server.js .
 
