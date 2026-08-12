@@ -11,3 +11,5 @@ terraform/id_ed25519
 terraform/id_ed25519.pub
 
 k8s/kubeconfig*
+
+*.exe
