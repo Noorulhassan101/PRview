@@ -26,18 +26,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Lowercase Repository Owner for Docker Tag
+        run: echo "REPO_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./demo-app
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/prview-demo:${{ github.event.pull_request.number }}-${{ github.sha }}
+            ghcr.io/${{ env.REPO_OWNER }}/prview-demo:${{ github.event.pull_request.number }}-${{ github.sha }}
             
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ github.repository_owner }}/prview-demo:${{ github.event.pull_request.number }}-${{ github.sha }}'
+          image-ref: 'ghcr.io/${{ env.REPO_OWNER }}/prview-demo:${{ github.event.pull_request.number }}-${{ github.sha }}'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
@@ -55,7 +58,7 @@ jobs:
           VM_IP: ${{ vars.VM_IP }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_SHA: ${{ github.sha }}
-          GHCR_USERNAME: ${{ github.repository_owner }}
+          GHCR_USERNAME: ${{ env.REPO_OWNER }}
         run: |
           echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig.yaml
           export KUBECONFIG=./kubeconfig.yaml
