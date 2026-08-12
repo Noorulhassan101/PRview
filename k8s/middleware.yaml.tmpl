@@ -1,0 +1,8 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: auth-${PR_NUMBER}
+  namespace: pr-${PR_NUMBER}
+spec:
+  basicAuth:
+    secret: preview-auth-secret

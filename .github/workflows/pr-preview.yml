@@ -1,0 +1,104 @@
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./demo-app
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/prview-demo:${{ github.event.pull_request.number }}-${{ github.sha }}
+            
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/prview-demo:${{ github.event.pull_request.number }}-${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        
+      - name: Render and Apply Kubernetes Manifests
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
+          BASIC_AUTH_CREDENTIALS: ${{ secrets.BASIC_AUTH_CREDENTIALS }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          VM_IP: ${{ vars.VM_IP }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_SHA: ${{ github.sha }}
+          GHCR_USERNAME: ${{ github.repository_owner }}
+        run: |
+          echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=./kubeconfig.yaml
+          
+          # Render templates
+          for file in k8s/*.tmpl; do
+            envsubst < "$file" > "${file%.tmpl}"
+          done
+          
+          # Create namespace
+          kubectl apply -f k8s/namespace.yaml
+          
+          # Create GHCR secret
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=$GHCR_USERNAME \
+            --docker-password=$GHCR_PAT \
+            --docker-email=admin@prview.local \
+            --dry-run=client -o yaml | kubectl apply -n pr-${PR_NUMBER} -f -
+            
+          # Create Basic Auth secret
+          kubectl create secret generic preview-auth-secret \
+            --from-literal=users="$BASIC_AUTH_CREDENTIALS" \
+            --dry-run=client -o yaml | kubectl apply -n pr-${PR_NUMBER} -f -
+            
+          # Apply the rest
+          kubectl apply -f k8s/quota.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/middleware.yaml
+          kubectl apply -f k8s/ingress.yaml
+          
+      - name: Comment PR
+        uses: actions/github-script@v7
+        env:
+          VM_IP: ${{ vars.VM_IP }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          script: |
+            const prUrl = `https://pr-${process.env.PR_NUMBER}.${process.env.VM_IP}.sslip.io`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 **Preview Environment Deployed!**\n\nYour changes are live at: [${prUrl}](${prUrl})\n\n*(Note for reviewers: Requires HTTP Basic Auth credentials)*`
+            })

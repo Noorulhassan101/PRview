@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-ingress
+  namespace: pr-${PR_NUMBER}
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    traefik.ingress.kubernetes.io/router.middlewares: pr-${PR_NUMBER}-auth-${PR_NUMBER}@kubernetescrd
+spec:
+  rules:
+    - host: pr-${PR_NUMBER}.${VM_IP}.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: demo-app-svc
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - pr-${PR_NUMBER}.${VM_IP}.sslip.io
+      secretName: demo-tls-cert
