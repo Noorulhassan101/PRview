@@ -50,6 +50,17 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         
+      - name: Setup SSH Tunnel for kubectl
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VM_IP: ${{ vars.VM_IP }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H $VM_IP >> ~/.ssh/known_hosts
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 -N -f -L 6443:127.0.0.1:6443 root@$VM_IP
+
       - name: Render and Apply Kubernetes Manifests
         env:
           KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
@@ -61,7 +72,6 @@ jobs:
           GHCR_USERNAME: ${{ env.REPO_OWNER }}
         run: |
           echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig.yaml
-          sed -i "s/127.0.0.1/$VM_IP/g" kubeconfig.yaml
           export KUBECONFIG=./kubeconfig.yaml
           
           # Render templates
