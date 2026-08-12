@@ -1,13 +1,11 @@
-FROM node:22-alpine
+# Use Chainguard's minimal, zero-CVE Node.js image to guarantee a clean Trivy scan
+FROM cgr.dev/chainguard/node:latest
 
-# Upgrade all OS packages to patch any recent, unfixed vulnerabilities that the base image ships with
-RUN apk upgrade --no-cache
+# Copy our server payload
+COPY server.js /app/server.js
 
-WORKDIR /app
-COPY server.js .
-
-# Ensure the container runs as a non-root user for security (Requirement 3.2.3)
-USER node
+# Note: Chainguard images run as the non-root `node` user by default (Requirement 3.2.3)
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+# Chainguard's default entrypoint is `/usr/bin/node`
+CMD ["/app/server.js"]
