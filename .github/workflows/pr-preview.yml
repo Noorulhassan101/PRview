@@ -110,7 +110,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         with:
           script: |
-            const prUrl = `https://pr-${process.env.PR_NUMBER}.${process.env.VM_IP}.sslip.io`;
+            const prUrl = `https://pr-${process.env.PR_NUMBER}-app.${process.env.VM_IP}.sslip.io`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
