@@ -8,7 +8,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.middlewares: pr-${PR_NUMBER}-auth-${PR_NUMBER}@kubernetescrd
 spec:
   rules:
-    - host: pr-${PR_NUMBER}.${VM_IP}.sslip.io
+    - host: pr-${PR_NUMBER}-app.${VM_IP}.sslip.io
       http:
         paths:
           - path: /
@@ -20,5 +20,5 @@ spec:
                   number: 80
   tls:
     - hosts:
-        - pr-${PR_NUMBER}.${VM_IP}.sslip.io
+        - pr-${PR_NUMBER}-app.${VM_IP}.sslip.io
       secretName: demo-tls-cert
