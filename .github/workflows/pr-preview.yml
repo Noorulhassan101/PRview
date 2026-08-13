@@ -72,6 +72,7 @@ jobs:
           GHCR_USERNAME: ${{ env.REPO_OWNER }}
         run: |
           echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig.yaml
+          sed -i 's|server: .*|server: https://127.0.0.1:6443|g' kubeconfig.yaml
           export KUBECONFIG=./kubeconfig.yaml
           
           # Render templates
